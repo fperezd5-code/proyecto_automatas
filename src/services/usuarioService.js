@@ -34,20 +34,58 @@ class UsuarioService {
     }
   }
 
-  // Ejemplo de otro método que podrías agregar
-  async obtenerUsuarioPorId(id) {
+  async loginConCorreo(email, password) {
+    const connection = await pool.getConnection();
+    
     try {
-      const [rows] = await pool.query(
-        'SELECT id, usuario, email, nombre_completo, telefono, fecha_creacion FROM usuarios WHERE id = ?',
-        [id]
+      // Llamar al stored procedure de login
+      await connection.query(
+        'CALL sp_login_correo(?, ?, @p_resultado, @p_mensaje, @p_session_token)',
+        [email, password]
       );
 
-      return rows[0] || null;
+      // Obtener los valores de salida
+      const [outputParams] = await connection.query(
+        'SELECT @p_resultado AS resultado, @p_mensaje AS mensaje, @p_session_token AS session_token'
+      );
+
+      const { resultado, mensaje, session_token } = outputParams[0];
+
+      // Si el login fue exitoso, obtener datos adicionales del usuario
+      let datosUsuario = null;
+      if (resultado > 0 && session_token) {
+        const [rows] = await connection.query(
+          `SELECT 
+            id, 
+            usuario, 
+            email, 
+            nombre_completo, 
+            telefono,
+            fecha_creacion
+          FROM usuarios 
+          WHERE id = ?`,
+          [resultado]
+        );
+        
+        datosUsuario = rows[0];
+      }
+
+      return {
+        success: resultado > 0,
+        resultado: resultado,
+        mensaje: mensaje,
+        session_token: session_token,
+        datosUsuario: datosUsuario
+      };
+
     } catch (error) {
-      console.error('Error en usuarioService.obtenerUsuarioPorId:', error);
+      console.error('Error en usuarioService.loginConCorreo:', error);
       throw error;
+    } finally {
+      connection.release();
     }
   }
+
 }
 
 module.exports = new UsuarioService();

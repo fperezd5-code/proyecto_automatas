@@ -4,7 +4,6 @@ const validateUsuarioRegistro = (req, res, next) => {
   const { usuario, email, nombre_completo, password, telefono } = req.body;
   const errors = [];
 
-  // Validaciones
   if (!usuario || usuario.trim() === '') {
     errors.push({ field: 'usuario', message: 'El usuario es requerido' });
   } else if (usuario.length > 50) {
@@ -44,6 +43,30 @@ const validateUsuarioRegistro = (req, res, next) => {
   next();
 };
 
+const validateLogin = (req, res, next) => {
+  const { email, password } = req.body;
+  const errors = [];
+
+  if (!email || email.trim() === '') {
+    errors.push({ field: 'email', message: 'El email es requerido' });
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.push({ field: 'email', message: 'El email no es válido' });
+  }
+
+  if (!password || password.trim() === '') {
+    errors.push({ field: 'password', message: 'La contraseña es requerida' });
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json(
+      ApiResponse.validationError('Errores de validación', errors)
+    );
+  }
+
+  next();
+};
+
 module.exports = {
-  validateUsuarioRegistro
+  validateUsuarioRegistro,
+  validateLogin
 };
