@@ -9,7 +9,10 @@ class UsuarioController {
         email: req.body.email,
         nombre_completo: req.body.nombre_completo,
         password: req.body.password,
-        telefono: req.body.telefono
+        telefono: req.body.telefono,
+        imagen_referencia: req.body.imagen_referencia,
+        notif_email: req.body.notif_email,
+        notif_whatsapp: req.body.notif_whatsapp
       };
 
       const result = await usuarioService.registrarUsuario(datosUsuario);
@@ -20,14 +23,19 @@ class UsuarioController {
           { 
             id: result.resultado,
             usuario: datosUsuario.usuario,
-            email: datosUsuario.email
+            email: datosUsuario.email,
+            nombre_completo: datosUsuario.nombre_completo,
+            notificaciones: {
+              email: datosUsuario.notif_email === true || datosUsuario.notif_email === 1,
+              whatsapp: datosUsuario.notif_whatsapp === true || datosUsuario.notif_whatsapp === 1
+            }
           },
           result.mensaje,
           201
         );
         return res.status(201).json(response);
       } else {
-        // Error de validación del stored procedure (email o usuario duplicado)
+        // Error de validación del stored procedure
         const response = ApiResponse.validationError(
           result.mensaje,
           null
@@ -53,7 +61,6 @@ class UsuarioController {
       const result = await usuarioService.loginConCorreo(email, password);
 
       if (result.success && result.session_token) {
-        // Login exitoso
         const response = ApiResponse.success(
           {
             usuario: {
@@ -73,7 +80,6 @@ class UsuarioController {
         );
         return res.status(200).json(response);
       } else {
-        // Credenciales incorrectas o usuario inactivo
         const response = ApiResponse.error(
           result.mensaje,
           401
