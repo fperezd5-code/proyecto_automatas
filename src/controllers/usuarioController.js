@@ -61,6 +61,23 @@ class UsuarioController {
       const result = await usuarioService.loginConCorreo(email, password);
 
       if (result.success && result.session_token) {
+        // Login exitoso - construir respuesta completa
+        
+        // Formatear métodos de notificación
+        const notificaciones = result.metodosNotificacion.map(metodo => ({
+          id: metodo.id,
+          tipo: metodo.tipo_notificacion,
+          destino: metodo.destino,
+          activo: metodo.activo === 1
+        }));
+
+        // Preparar datos de autenticación facial
+        const facial = result.autenticacionFacial ? {
+          id: result.autenticacionFacial.id,
+          imagen_referencia: result.autenticacionFacial.imagen_referencia,
+          activo: result.autenticacionFacial.activo === 1
+        } : null;
+
         const response = ApiResponse.success(
           {
             usuario: {
@@ -68,18 +85,22 @@ class UsuarioController {
               usuario: result.datosUsuario.usuario,
               email: result.datosUsuario.email,
               nombre_completo: result.datosUsuario.nombre_completo,
-              telefono: result.datosUsuario.telefono
+              telefono: result.datosUsuario.telefono,
+              activo: result.datosUsuario.activo === 1
             },
             session: {
               token: result.session_token,
               fecha_login: new Date().toISOString()
-            }
+            },
+            notificaciones: notificaciones,
+            autenticacion_facial: facial
           },
           result.mensaje,
           200
         );
         return res.status(200).json(response);
       } else {
+        // Credenciales incorrectas o usuario inactivo
         const response = ApiResponse.error(
           result.mensaje,
           401
