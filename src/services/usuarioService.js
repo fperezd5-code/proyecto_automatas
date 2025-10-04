@@ -60,17 +60,26 @@ class UsuarioService {
     const connection = await pool.getConnection();
     
     try {
-      await connection.query(
+      // Llamar al stored procedure
+      const [results] = await connection.query(
         'CALL sp_login_correo(?, ?, @p_resultado, @p_mensaje, @p_session_token)',
         [email, password]
       );
 
+      // Obtener los valores de salida (OUT parameters)
       const [outputParams] = await connection.query(
         'SELECT @p_resultado AS resultado, @p_mensaje AS mensaje, @p_session_token AS session_token'
       );
 
       const { resultado, mensaje, session_token } = outputParams[0];
 
+      // El SP retorna 2 result sets adicionales:
+      // results[0] = métodos de notificación
+      // results[1] = autenticación facial
+      const metodosNotificacion = results[0] || [];
+      const autenticacionFacial = results[1] && results[1].length > 0 ? results[1][0] : null;
+
+      // Si el login fue exitoso, obtener datos del usuario
       let datosUsuario = null;
       if (resultado > 0 && session_token) {
         const [rows] = await connection.query(
@@ -80,6 +89,7 @@ class UsuarioService {
             email, 
             nombre_completo, 
             telefono,
+            activo,
             fecha_creacion
           FROM usuarios 
           WHERE id = ?`,
@@ -94,7 +104,9 @@ class UsuarioService {
         resultado: resultado,
         mensaje: mensaje,
         session_token: session_token,
-        datosUsuario: datosUsuario
+        datosUsuario: datosUsuario,
+        metodosNotificacion: metodosNotificacion,
+        autenticacionFacial: autenticacionFacial
       };
 
     } catch (error) {
