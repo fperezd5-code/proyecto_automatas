@@ -46,7 +46,52 @@ class UsuarioController {
     }
   }
 
-  // Ejemplo de otro endpoint
+  async loginCorreo(req, res) {
+    try {
+      const { email, password } = req.body;
+
+      const result = await usuarioService.loginConCorreo(email, password);
+
+      if (result.success && result.session_token) {
+        // Login exitoso
+        const response = ApiResponse.success(
+          {
+            usuario: {
+              id: result.datosUsuario.id,
+              usuario: result.datosUsuario.usuario,
+              email: result.datosUsuario.email,
+              nombre_completo: result.datosUsuario.nombre_completo,
+              telefono: result.datosUsuario.telefono
+            },
+            session: {
+              token: result.session_token,
+              fecha_login: new Date().toISOString()
+            }
+          },
+          result.mensaje,
+          200
+        );
+        return res.status(200).json(response);
+      } else {
+        // Credenciales incorrectas o usuario inactivo
+        const response = ApiResponse.error(
+          result.mensaje,
+          401
+        );
+        return res.status(401).json(response);
+      }
+
+    } catch (error) {
+      console.error('Error en usuarioController.loginCorreo:', error);
+      
+      const response = ApiResponse.error(
+        'Error interno del servidor al iniciar sesión',
+        500
+      );
+      return res.status(500).json(response);
+    }
+  }
+
   async obtenerUsuario(req, res) {
     try {
       const { id } = req.params;
