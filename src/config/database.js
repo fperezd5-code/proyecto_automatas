@@ -1,6 +1,6 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
-//PRUEBAS
+//PRUEBAS2025
 // Pool de conexiones
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
