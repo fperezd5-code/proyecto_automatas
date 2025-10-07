@@ -2,6 +2,8 @@ require('dotenv').config();
 const app = require('./src/app');
 const { checkConnection } = require('./src/config/database');
 
+//prueba de comentario
+
 const PORT = process.env.PORT || 3000;
 
 // Iniciar servidor
