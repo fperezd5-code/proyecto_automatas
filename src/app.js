@@ -5,6 +5,7 @@ const cors = require('cors');
 const healthRoutes = require('./routes/healthRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const qrUsuarioRoutes = require('./routes/qrUsuarioRoutes');
+const facialRoutes = require('./routes/facialRoutes');
 
 // Crear instancia de Express
 const app = express();
@@ -25,8 +26,10 @@ app.use(cors(corsOptions));
 // ========================================
 // MIDDLEWARES
 // ========================================
-app.use(express.json()); // Parseo de JSON
-app.use(express.urlencoded({ extended: true })); // Parseo de body en formularios
+
+// IMPORTANTE: Aumentar límite de JSON para imágenes Base64
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ========================================
 // ROUTES
@@ -34,6 +37,7 @@ app.use(express.urlencoded({ extended: true })); // Parseo de body en formulario
 app.use('/api', healthRoutes); // Ruta de salud
 app.use('/api/usuarios', usuarioRoutes); // Rutas de usuario
 app.use('/api/qrusuario', qrUsuarioRoutes); // Rutas de QR de usuario
+app.use('/api/facial', facialRoutes); // Rutas de verificación facial
 
 // ========================================
 // RUTA RAÍZ
