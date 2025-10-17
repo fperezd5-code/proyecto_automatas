@@ -3,109 +3,93 @@ const crypto = require('crypto');
 const QRCode = require('qrcode');
 
 class QrUsuarioService {
-  async generarQrLogin(email, password) {
+  /**
+   * Genera un QR para el login validando los datos personales y usando un token.
+   */
+  async generarQrPorDatos(datosUsuario) {
+    const { usuario, nombre_completo, email, telefono } = datosUsuario;
     const connection = await pool.getConnection();
     try {
       console.log('========================================');
-      console.log('🔍 DEBUG - generarQrLogin');
+      console.log('🔍 DEBUG - Inicia generarQrPorDatos con Lógica de Token');
       console.log('========================================');
-      console.log('Email recibido:', email);
-      console.log('Tipo de email:', typeof email);
-      console.log('Length email:', email ? email.length : 'null');
-      console.log('Password recibido:', password);
-      console.log('Tipo de password:', typeof password);
-      console.log('Length password:', password ? password.length : 'null');
-      console.log('');
 
-      // Hashear el password con SHA256
-      const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
-      console.log('🔐 Password hasheado:', passwordHash);
-      console.log('');
-
-      // Query con logs
-      console.log('🔍 Ejecutando query...');
       const [rows] = await connection.query(
-        'SELECT id, email, password_hash, activo FROM usuarios WHERE email = ? AND password_hash = ? AND activo = 1',
-        [email, passwordHash]
+        `SELECT id, activo FROM usuarios
+         WHERE usuario = ? AND nombre_completo = ? AND email = ? AND telefono = ?`,
+        [usuario, nombre_completo, email, telefono]
       );
-
-      console.log('📊 Resultados de la query:', rows.length);
-      if (rows.length > 0) {
-        console.log('✅ Usuario encontrado:', rows[0]);
-      } else {
-        console.log('❌ No se encontró usuario');
-        
-        // Debug adicional
-        const [testEmail] = await connection.query(
-          'SELECT id, email, password_hash, activo FROM usuarios WHERE email = ?',
-          [email]
-        );
-        console.log('🔍 Usuario con ese email existe?', testEmail.length > 0);
-        if (testEmail.length > 0) {
-          console.log('  Datos del usuario:', testEmail[0]);
-          console.log('  Password en BD:', testEmail[0].password_hash);
-          console.log('  Password recibido:', password);
-          console.log('  Son iguales?', testEmail[0].password_hash === password);
-          console.log('  Activo?', testEmail[0].activo);
-        }
-      }
-      console.log('========================================\n');
 
       if (rows.length === 0) {
-        return { success: false, mensaje: 'Credenciales inválidas o usuario inactivo' };
+        return { success: false, mensaje: 'Los datos no coinciden con ningún usuario registrado.' };
       }
 
-      const usuarioId = rows[0].id;
-      const qrPayload = JSON.stringify({
-        usuario_id: usuarioId,
-        email,
-        timestamp: Date.now()
-      });
+      const usuarioEncontrado = rows[0];
 
-      const codigo_qr = await QRCode.toDataURL(qrPayload);
-      const qr_hash = crypto.createHash('sha256').update(codigo_qr).digest('hex');
+      if (usuarioEncontrado.activo !== 1) {
+        return { success: false, mensaje: 'La cuenta de usuario está inactiva.' };
+      }
 
+      console.log('Resultado: Usuario encontrado y activo.');
+
+      // 1. Generar un token único y corto en lugar de un payload JSON.
+      const loginToken = crypto.randomBytes(24).toString('hex'); // Token de 48 caracteres.
+
+      // 2. Generar la imagen del QR a partir del token.
+      const codigo_qr_base64 = await QRCode.toDataURL(loginToken);
+      const token_hash = crypto.createHash('sha256').update(loginToken).digest('hex');
+
+      // 3. Guardar el TOKEN (no la imagen) en la columna 'codigo_qr'.
       await connection.query(
-        `INSERT INTO codigos_qr (usuario_id, codigo_qr, qr_hash) VALUES (?, ?, ?)`,
-        [usuarioId, codigo_qr, qr_hash]
+        `INSERT INTO codigos_qr (usuario_id, codigo_qr, qr_hash, activo)
+         VALUES (?, ?, ?, 1)`,
+        [usuarioEncontrado.id, loginToken, token_hash]
       );
 
-      return { success: true, codigo_qr, mensaje: 'QR generado exitosamente' };
+      console.log(`✅ Token de QR generado (${loginToken}) y guardado exitosamente.`);
+      console.log('========================================');
+
+      return { success: true, codigo_qr: codigo_qr_base64, mensaje: 'QR generado exitosamente.' };
+
     } catch (error) {
-      console.error('❌ Error generando QR:', error);
+      console.error('❌ Error fatal en generarQrPorDatos:', error);
       throw error;
     } finally {
-      connection.release();
+      if (connection) connection.release();
     }
   }
 
-  async validarQrLogin(qrBase64) {
+  /**
+   * Valida el token escaneado del QR, crea una sesión y devuelve los datos del usuario.
+   */
+  async validarQrLogin(qrData) { // Ahora recibe el token del QR
     const connection = await pool.getConnection();
     try {
-      // Buscar QR en la BD
+      // Busca el token en la columna 'codigo_qr'
       const [qrRows] = await connection.query(
-        'SELECT usuario_id, activo FROM codigos_qr WHERE codigo_qr = ?',
-        [qrBase64]
+        'SELECT id, usuario_id FROM codigos_qr WHERE codigo_qr = ? AND activo = 1',
+        [qrData]
       );
 
-      if (qrRows.length === 0 || !qrRows[0].activo) {
-        return { success: false, mensaje: 'QR inválido o inactivo' };
+      if (qrRows.length === 0) {
+        return { success: false, mensaje: 'QR inválido, expirado o ya fue utilizado.' };
       }
 
-      const usuarioId = qrRows[0].usuario_id;
-
-      // Generar token de sesión
+      const qrRecord = qrRows[0];
+      // Desactiva el token para que no se pueda reusar.
+      await connection.query('UPDATE codigos_qr SET activo = 0 WHERE id = ?', [qrRecord.id]);
+      
+      const usuarioId = qrRecord.usuario_id;
       const sessionToken = crypto.randomBytes(32).toString('hex');
 
-      // Insertar sesión con método login 'qr'
       await connection.query(
-        `INSERT INTO sesiones (usuario_id, session_token, metodo_login, activa) VALUES (?, ?, 'qr', 1)`,
+        `INSERT INTO sesiones (usuario_id, session_token, metodo_login, activa, fecha_login) 
+         VALUES (?, ?, 'qr', 1, NOW())`,
         [usuarioId, sessionToken]
       );
 
-      // Datos de usuario
       const [userRows] = await connection.query(
-        `SELECT id, usuario, email, nombre_completo, telefono, activo FROM usuarios WHERE id = ?`,
+        'SELECT id, usuario, email, nombre_completo, telefono, activo FROM usuarios WHERE id = ?',
         [usuarioId]
       );
 
@@ -116,12 +100,13 @@ class QrUsuarioService {
         usuario: userRows[0]
       };
     } catch (error) {
-      console.error('Error validando QR:', error);
+      console.error('❌ Error fatal en validarQrLogin:', error);
       throw error;
     } finally {
-      connection.release();
+      if (connection) connection.release();
     }
   }
 }
 
 module.exports = new QrUsuarioService();
+

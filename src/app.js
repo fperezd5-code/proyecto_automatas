@@ -1,64 +1,33 @@
 const express = require('express');
 const cors = require('cors');
 
-// Rutas
+// Importación de rutas
 const healthRoutes = require('./routes/healthRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const qrUsuarioRoutes = require('./routes/qrUsuarioRoutes');
+const ApiResponse = require('./utils/response');
 
 // Crear instancia de Express
 const app = express();
 
-// ========================================
-// CONFIGURACIÓN DE CORS
-// ========================================
-const corsOptions = {
-  origin: '*', // Permitir todos los orígenes
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // Métodos HTTP permitidos
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'], // Headers permitidos
-  credentials: true, // Permitir cookies / credenciales
-  optionsSuccessStatus: 200 // Respuesta para navegadores antiguos
-};
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.use(cors(corsOptions));
+// --- Rutas de la API ---
+app.use('/api', healthRoutes);
+app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/qrusuario', qrUsuarioRoutes);
 
-// ========================================
-// MIDDLEWARES
-// ========================================
-app.use(express.json()); // Parseo de JSON
-app.use(express.urlencoded({ extended: true })); // Parseo de body en formularios
-
-// ========================================
-// ROUTES
-// ========================================
-app.use('/api', healthRoutes); // Ruta de salud
-app.use('/api/usuarios', usuarioRoutes); // Rutas de usuario
-app.use('/api/qrusuario', qrUsuarioRoutes); // Rutas de QR de usuario
-
-// ========================================
-// RUTA RAÍZ
-// ========================================
+// --- Ruta Raíz ---
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'API is running',
-    version: '1.0.0',
-    endpoints: {
-      health: '/api/health',
-      usuarios: '/api/usuarios',
-      qrusuario: '/api/qrusuario'
-    }
-  });
+  res.json({ message: 'API de Autenticación por QR está funcionando.' });
 });
 
-// ========================================
-// MANEJO DE RUTAS NO ENCONTRADAS
-// ========================================
-app.use((req, res) => {
-  res.status(404).json({ 
-    data: null,
-    status: 404,
-    message: 'Ruta no encontrada'
-  });
+// --- Manejo de Rutas no Encontradas (404) ---
+app.use((req, res, next) => {
+  res.status(404).json(ApiResponse.error('Ruta no encontrada.', 404));
 });
 
 module.exports = app;
+
