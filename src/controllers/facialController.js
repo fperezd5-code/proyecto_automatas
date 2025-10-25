@@ -16,16 +16,26 @@ class FacialController {
           ApiResponse.validationError('La imagen facial es requerida')
         );
       }
+      
+      // MODIFICACIÓN: Limpiamos la imagen de entrada ANTES de validarla y usarla
+      const imagenLimpia = this.stripBase64Prefix(imagen_facial);
 
-      // Validar formato base64 básico
-      if (!this.isValidBase64(imagen_facial)) {
+      // Validar que no esté vacía después de limpiar
+      if (!imagenLimpia) {
+         return res.status(400).json(
+           ApiResponse.validationError('La imagen facial es inválida o está vacía')
+         );
+      }
+
+      // Validar formato base64 básico (ahora sobre la imagen limpia)
+      if (!this.isValidBase64(imagenLimpia)) {
         return res.status(400).json(
-          ApiResponse.validationError('La imagen debe estar en formato Base64 válido')
+          ApiResponse.validationError('La imagen debe estar en formato Base64 puro')
         );
       }
 
-      // Buscar coincidencia en la base de datos
-      const resultado = await facialService.buscarCoincidenciaFacial(imagen_facial);
+      // Buscar coincidencia en la base de datos (usando la imagen limpia)
+      const resultado = await facialService.buscarCoincidenciaFacial(imagenLimpia);
 
       if (resultado.coincide) {
         // Obtener datos completos del usuario y crear sesión
@@ -53,22 +63,29 @@ class FacialController {
       );
     }
   }
+  
+  /**
+   * NUEVA FUNCIÓN HELPER
+   * Limpia el prefijo 'data:image/...' de una cadena Base64
+   */
+  stripBase64Prefix(str) {
+    if (typeof str !== 'string') return '';
+    if (str.includes(',')) {
+      return str.split(',')[1];
+    }
+    return str;
+  }
 
   /**
    * Valida si una cadena es Base64 válida
+   * (MODIFICADO para validar la cadena pura)
    */
   isValidBase64(str) {
     try {
       // Regex básico para validar Base64
       const base64Regex = /^[A-Za-z0-9+/]+=*$/;
-
-      // Remover posible prefijo de data URL
-      let base64String = str;
-      if (str.includes(',')) {
-        base64String = str.split(',')[1];
-      }
-
-      return base64Regex.test(base64String) && base64String.length > 0;
+      // Ya no necesitamos limpiar 'str' aquí, porque lo hicimos antes
+      return base64Regex.test(str) && str.length > 0;
     } catch (error) {
       return false;
     }

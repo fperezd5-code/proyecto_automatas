@@ -6,9 +6,21 @@ class FacialService {
   constructor() {
     this.LOTE_SIZE = 10;
     this.MAX_PARALELO = 10;
-    this.SCORE_MINIMO = 100;
+    this.SCORE_MINIMO = 100; // Asegúrate de que este sea el score correcto
     this.BIOMETRIC_API_URL = process.env.BIOMETRIC_API_URL;
-    this.TIMEOUT_MS = 10000; // 5 segundos timeout por request
+    this.TIMEOUT_MS = 10000; // 10 segundos timeout por request
+  }
+  
+  /**
+   * NUEVA FUNCIÓN HELPER
+   * Limpia el prefijo 'data:image/...' de una cadena Base64
+   */
+  _stripBase64Prefix(str) {
+    if (typeof str !== 'string') return '';
+    if (str.includes(',')) {
+      return str.split(',')[1];
+    }
+    return str;
   }
 
   /**
@@ -108,14 +120,20 @@ class FacialService {
 
   /**
    * Compara dos rostros usando la API de biometría
+   * (MODIFICADO para limpiar prefijos y añadir log de depuración)
    */
   async compararRostros(rostroA, registroRostro) {
     try {
+      // MODIFICACIÓN: Limpiamos ambas cadenas Base64
+      const rostroALimpio = this._stripBase64Prefix(rostroA);
+      const rostroBLimpio = this._stripBase64Prefix(registroRostro.imagen_referencia);
+
       const response = await axios.post(
         this.BIOMETRIC_API_URL,
         {
-          RostroA: rostroA,
-          RostroB: registroRostro.imagen_referencia
+          // Enviamos las versiones limpias a la API
+          RostroA: rostroALimpio,
+          RostroB: rostroBLimpio
         },
         {
           timeout: this.TIMEOUT_MS,
@@ -126,6 +144,11 @@ class FacialService {
       );
 
       const { coincide, score, status } = response.data;
+
+      // --- INICIO DE DEPURACIÓN ---
+      // ¡Este log te dirá la respuesta exacta de la API!
+      console.log(`[DEBUG FacialAPI] API Status: ${status}, Coincide: ${coincide}, Score: ${score}, (UsuarioDB: ${registroRostro.usuario_id})`);
+      // --- FIN DE DEPURACIÓN ---
 
       // Solo retornar coincidencia si status es 'Ok' y coincide es true
       if (status === 'Ok' && coincide) {
