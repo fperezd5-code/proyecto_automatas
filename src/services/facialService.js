@@ -8,7 +8,7 @@ class FacialService {
     this.MAX_PARALELO = 10;
     this.SCORE_MINIMO = 100; // Asegúrate de que este sea el score correcto
     this.BIOMETRIC_API_URL = process.env.BIOMETRIC_API_URL;
-    this.TIMEOUT_MS = 10000; // 10 segundos timeout por request
+    this.TIMEOUT_MS = 30000; // 10 segundos timeout por request
   }
   
   /**
