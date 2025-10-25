@@ -8,7 +8,7 @@ class FacialService {
     this.MAX_PARALELO = 10;
     this.SCORE_MINIMO = 100;
     this.BIOMETRIC_API_URL = process.env.BIOMETRIC_API_URL;
-    this.TIMEOUT_MS = 10000; // 5 segundos timeout por request
+    this.TIMEOUT_MS = 20000; // 5 segundos timeout por request
   }
 
   /**
@@ -70,7 +70,7 @@ class FacialService {
       WHERE af.activo = 1 
         AND af.imagen_referencia IS NOT NULL
         AND af.imagen_referencia != ''
-      ORDER BY af.id
+      ORDER BY af.id DESC
       LIMIT ? OFFSET ?
     `;
 
