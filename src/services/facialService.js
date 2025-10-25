@@ -82,7 +82,7 @@ class FacialService {
       WHERE af.activo = 1 
         AND af.imagen_referencia IS NOT NULL
         AND af.imagen_referencia != ''
-      ORDER BY af.id
+      ORDER BY af.id DESC
       LIMIT ? OFFSET ?
     `;
 
